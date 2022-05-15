@@ -1,15 +1,10 @@
-﻿using System.Text.Json;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Ocdi.Alphaess;
+﻿var configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".alphaess.json");
 
-var configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".alphaess.json");
+AccessData? data = null;
 
-AuthenticationData? data = null;
-
-if (File.Exists(configFile)) {
-    data = JsonSerializer.Deserialize<AuthenticationData>(File.ReadAllText(configFile));
+if (File.Exists(configFile))
+{
+    data = JsonSerializer.Deserialize<AccessData>(File.ReadAllText(configFile));
 }
 
 var host = Host.CreateDefaultBuilder(args)
@@ -20,22 +15,18 @@ var host = Host.CreateDefaultBuilder(args)
 var client = host.Services.GetRequiredService<AlphaESSClient>();
 var config = host.Services.GetRequiredService<IConfiguration>();
 
-if (data?.AccessToken == null)
-{
+await client.Init(new Credentials { Username = config["username"], Password = config["password"] }, data);
 
-    Console.WriteLine(config["password"]);
-    var res = await client.Authenticate(config["username"], config["password"]);
-    if (res?.Data != null)
+// cache the credentials between runs
+if (client.AuthenticationData?.AccessToken != null)
 {
-    var authJson = System.Text.Json.JsonSerializer.Serialize(res.Data);
+    var authJson = JsonSerializer.Serialize(client.AuthenticationData);
     File.WriteAllText(configFile, authJson);
     Console.WriteLine(authJson);
-
-}} else { 
-    Console.WriteLine(data.AccessToken);
-
-    client.
 }
 
 
 
+var systems = await client.SystemListAsync();
+
+Console.WriteLine(JsonSerializer.Serialize(systems));

@@ -1,55 +1,73 @@
 ﻿using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 
 namespace Ocdi.Alphaess;
+
+public class Credentials
+{
+    public string Username { get; set; } = null!;
+    public string Password { get; set; } = null!;
+}
 
 public class AlphaESSClient
 {
     private readonly HttpClient _client;
 
-    public AlphaESSClient(HttpClient client)
+    public AccessData? AuthenticationData { get; protected set; }
+    protected Credentials? Credentials { get; set; }
+
+
+    public AlphaESSClient(HttpClient client) => _client = client;
+
+    public async Task Init(Credentials credentials, AccessData? data)
     {
-        _client = client;
+        AuthenticationData = data;
+        Credentials = credentials;
+
+        if (!ValidateTokenExpiry())
+        {
+            await Authenticate();
+        }
     }
 
-    public async Task<ApiResult<AuthenticationData>?> Authenticate(string username, string password)
+    public async Task<ApiResult<AccessData>?> Authenticate()
     {
-        var result = await _client.PostAsJsonAsync("/api/Account/Login", new { username, password });
-        return await result.Content.ReadFromJsonAsync<ApiResult<AuthenticationData>>();
+        if (Credentials == null) throw new ArgumentNullException(nameof(Credentials), "Ensure Init is called before attempting to call this method");
+
+        var result = await _client.PostAsJsonAsync("/api/Account/Login", new { username = Credentials.Username, password = Credentials.Password });
+        var apiResult = await result.Content.ReadFromJsonAsync<ApiResult<AccessData>>();
+        if (apiResult?.Data?.AccessToken != null)
+            SetAuthentication(apiResult.Data);
+
+        return apiResult;
     }
 
-    public async Task<ApiResult<SystemData[]>?> SystemListAsync()
+    private void SetAuthentication(AccessData? data)
     {
-        return await _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist");
+        if (data != null)
+            _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", data.AccessToken);
     }
-}
 
-public class SystemData
-{
-    [JsonPropertyName("sys_sn")]
-    public string SystemSerialNumber { get; set; }
+    public DateTime ParseTokenCreateTime(string tokenCreateTime)
+    {
+        if (tokenCreateTime.Contains('M')) // AM or PM
+            return DateTime.ParseExact(tokenCreateTime, "MM/dd/yyyy hh:mm:ss tt", null);
 
-    [JsonPropertyName("sys_name")]
-    public string SystemName {get;set;}
+        return DateTime.ParseExact(tokenCreateTime, "yyyy-MM-dd HH:mm:ss", null);
+    }
 
-    [JsonPropertyName("popv")]
-    public float SolarPowerKW { get; set; }
+    public bool ValidateTokenExpiry()
+    {
+        if (AuthenticationData == null || AuthenticationData.TokenCreateTime == null) return false;
 
-    [JsonPropertyName("minv")]
-    public string InverterModel { get; set; }
-    [JsonPropertyName("poinv")]
-    public float InverterPowerKW { get; set; }
+        var tokenAge = DateTime.UtcNow - ParseTokenCreateTime( AuthenticationData.TokenCreateTime);
+        if (tokenAge.TotalSeconds < AuthenticationData.ExpiresIn)
+        {
+            return true;
+        }
+        return false;
+    }
 
-    [JsonPropertyName("cobat")]
-    public float BatteryCapacity { get; set; }
+    public async Task<ApiResult<SystemData[]>?> SystemListAsync() => await _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist");
 
-    [JsonPropertyName("mbat")]
-    public string BatteryModel { get; set; }
-
-    [JsonPropertyName("uscapacity")]
-    public float UsuableCapacity { get; set; }
-
-    [JsonPropertyName("ems_status")]
-    public string SystemStatus { get; set; }
 
 }
