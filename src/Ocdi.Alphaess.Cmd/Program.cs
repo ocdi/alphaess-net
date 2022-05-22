@@ -26,6 +26,16 @@ if (client.AuthenticationData?.AccessToken != null)
 }
 
 
+var tz = TimeZoneInfo.FindSystemTimeZoneById("AUS Eastern Standard Time");
+DateTime Now() => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+var n = Now();
+
+var today = DateOnly.FromDateTime(Now());
+var peakStart = today.ToDateTime(new TimeOnly(15, 0), DateTimeKind.Local);
+
+
+var chargeRatePer5 = 4.2;
+var targetPercent = 100;
 
 var systems = await client.SystemListAsync();
 if (systems?.Data == null)
@@ -34,18 +44,55 @@ if (systems?.Data == null)
     return;
 }
 Console.WriteLine(JsonSerializer.Serialize(systems));
+if (false)
+{
+    foreach (var sys in systems.Data)
+    {
+        var stats = await client.GetStatisticsByDay(sys.SystemSerialNumber, today);
+        // element 120 is 10:00
+        // element 180 is 15:00
+        // let's calculate the charge rate over that time
+        if (stats?.Data is { } d)
+        {
+            Console.WriteLine($"{"Time",6} {"BAT %",8} {"Chg R",8} {"Chg kw",8} {"PV kw",8} {"Load kw",8} {"Grid kw",8} {"Feed kw",8}");
+            for (var i = 120; i <= 180; i++)
+            {
+                Console.WriteLine($"{d.Time[i],6} {d.Cbat[i],8:0.00} {d.Cbat[i] - d.Cbat[i - 1],8:0.00} {d.Ppv[i] - d.FeedIn[i] - d.HomePower[i] + d.GridCharge[i],8:0.00}{d.Ppv[i],8:0.00} {d.HomePower[i],8:0.00} {d.GridCharge[i],8:0.00} {d.FeedIn[i],8:0.00}");
+            }
+        }
+    }
+}
 
 while (true)
 {
+    var timeToPeak = peakStart - Now();
+    // if this is less than zero, we've passed peak time so we should add a day
+    if (timeToPeak.TotalSeconds < 0)
+    {
+        peakStart = peakStart.AddDays(1);
+        continue;
+    }
 
     foreach (var sys in systems.Data)
     {
         var lpd = await client.GetLastPowerDataBySN(sys.SystemSerialNumber);
         if (lpd?.Data is { } d)
         {
-            Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"BAT",8} {"Load",8}");
-            Console.WriteLine($"{sys.SystemSerialNumber,-20} {d.soc,4:0.0} {d.pmeter_dc,8:0.00} {d.pbat,8:0.00} {d.pmeter_dc + d.pbat,8:0.0} {(d.pbat < 0 ? "Charing" : "Discharging")}");
+            
+            
+
+            var timeReqToCharge = TimeSpan.FromMinutes((targetPercent - d.StateOfCharge) * chargeRatePer5 / 5);
+
+            if (timeToPeak.TotalSeconds > 0 && timeReqToCharge > timeToPeak)
+            {
+            }
+
+            Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"AC",8} {"BAT",8} {"Load",8} {"State",13} {"TTC",8}");
+            Console.WriteLine($"{sys.SystemSerialNumber,-20} {d} {timeReqToCharge,8}");
+            Console.WriteLine($"charge start in {timeToPeak - timeReqToCharge}");
         }
     }
     await Task.Delay(TimeSpan.FromSeconds(10));
 }
+
+

@@ -10,6 +10,8 @@ public class Credentials
 
 public class AlphaESSClient
 {
+    public const string DateFormat = "yyyy-MM-dd";
+
     private readonly HttpClient _client;
 
     public AccessData? AuthenticationData { get; protected set; }
@@ -20,7 +22,7 @@ public class AlphaESSClient
 
     public async Task Init(Credentials credentials, AccessData? data)
     {
-        AuthenticationData = data;
+        SetAuthentication(data);
         Credentials = credentials;
 
         if (!ValidateTokenExpiry())
@@ -60,7 +62,7 @@ public class AlphaESSClient
     {
         if (AuthenticationData == null || AuthenticationData.TokenCreateTime == null) return false;
 
-        var tokenAge = DateTime.UtcNow - ParseTokenCreateTime( AuthenticationData.TokenCreateTime);
+        var tokenAge = DateTime.UtcNow - ParseTokenCreateTime(AuthenticationData.TokenCreateTime);
         if (tokenAge.TotalSeconds < AuthenticationData.ExpiresIn)
         {
             return true;
@@ -69,11 +71,15 @@ public class AlphaESSClient
     }
 
     public async Task<ApiResult<SystemData[]>?> SystemListAsync() => await _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist");
-
+    public async Task<ApiResult<StatisticsByDay>?> GetStatisticsByDay(string serialNumber, DateOnly requestedDay)
+    {
+        var result = await _client.PostAsJsonAsync("/api/Power/SticsByDay", new StatisticsByDayRequest { sn = serialNumber, sDate = DateTime.Today.ToString(DateFormat), userId = serialNumber, szDay = requestedDay.ToString(DateFormat) });
+        var res = await result.Content.ReadAsStringAsync();
+        return await result.Content.ReadFromJsonAsync<ApiResult<StatisticsByDay>>();
+    }
     public async Task<ApiResult<LastPowerData>?> GetLastPowerDataBySN(string serialNumber)
     {
-        var result = await _client.PostAsJsonAsync("/api/ESS/GetLastPowerDataBySN", new LastPowerRequest {  sys_sn = serialNumber, noLoading = true });
-        var res = await result.Content.ReadAsStringAsync();
+        var result = await _client.PostAsJsonAsync("/api/ESS/GetLastPowerDataBySN", new LastPowerRequest { sys_sn = serialNumber, noLoading = true });
         return await result.Content.ReadFromJsonAsync<ApiResult<LastPowerData>>();
     }
 }
