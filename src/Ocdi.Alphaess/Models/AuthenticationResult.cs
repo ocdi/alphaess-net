@@ -1,4 +1,4 @@
-namespace Ocdi.Alphaess;
+namespace Ocdi.Alphaess.Models;
 
 public partial class ApiResult<T>
 {

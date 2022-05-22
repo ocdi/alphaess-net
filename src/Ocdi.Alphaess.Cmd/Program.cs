@@ -1,4 +1,6 @@
-﻿var configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".alphaess.json");
+﻿using Ocdi.Alphaess.Models;
+
+var configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".alphaess.json");
 
 AccessData? data = null;
 
@@ -62,9 +64,18 @@ if (false)
         }
     }
 }
+var currentSetting = (await client.GetCustomUseESSSetting())?.Data;
+
+if (currentSetting == null)
+{
+    Console.WriteLine("ERROR: Can't get current charge settings");
+    return;
+}
+
 
 while (true)
 {
+
     var timeToPeak = peakStart - Now();
     // if this is less than zero, we've passed peak time so we should add a day
     if (timeToPeak.TotalSeconds < 0)
@@ -78,13 +89,30 @@ while (true)
         var lpd = await client.GetLastPowerDataBySN(sys.SystemSerialNumber);
         if (lpd?.Data is { } d)
         {
-            
-            
-
             var timeReqToCharge = TimeSpan.FromMinutes((targetPercent - d.StateOfCharge) * chargeRatePer5 / 5);
 
-            if (timeToPeak.TotalSeconds > 0 && timeReqToCharge > timeToPeak)
+            /* we have limited control over charging - if the duration is < 1hr, we turn off charging
+             * if the time is > 1hr, we set the start time to be peak start - # of hours
+             * as soon as we pass the timeReqToCharge, we adjust the start time to current hour
+             * */
+
+            if (timeReqToCharge.TotalMinutes < 60)
             {
+                if (currentSetting.grid_charge == 1)
+                {
+                    currentSetting.grid_charge = 0;
+                    currentSetting = await client.UpdateCustomUseESSSetting(currentSetting);
+                }
+            }
+            else 
+            {
+                var startTime = peakStart.AddHours(-Math.Floor(timeReqToCharge.TotalMinutes / 60) - (timeReqToCharge > timeToPeak ? 1 : 0)).ToString("HH:mm");
+                if (currentSetting.grid_charge == 0 || currentSetting.time_chaf1a != startTime)
+                {
+                    currentSetting.grid_charge = 1;
+                    currentSetting.time_chaf1a = startTime;
+                    currentSetting = await client.UpdateCustomUseESSSetting(currentSetting);
+                }
             }
 
             Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"AC",8} {"BAT",8} {"Load",8} {"State",13} {"TTC",8}");

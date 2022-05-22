@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Ocdi.Alphaess;
+namespace Ocdi.Alphaess.Models;
 
 public class SystemData
 {
@@ -8,7 +8,7 @@ public class SystemData
     public string SystemSerialNumber { get; set; }
 
     [JsonPropertyName("sys_name")]
-    public string SystemName {get;set;}
+    public string SystemName { get; set; }
 
     [JsonPropertyName("popv")]
     public float SolarPowerKW { get; set; }

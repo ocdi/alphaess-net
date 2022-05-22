@@ -1,29 +1,4 @@
-﻿namespace Ocdi.Alphaess;
-
-
-
-public class StatisticsByDayRequest
-{
-    public string sn { get; set; }
-    /// <summary>
-    /// Seems to be the SN
-    /// </summary>
-    public string userId { get; set; }
-
-    /// <summary>
-    /// Seems to be zero
-    /// </summary>
-    public int isOEM { get; set; }
-
-    /// <summary>
-    /// Date in yyyy-mm-dd format, for the day to get the data requested
-    /// </summary>
-    public string szDay { get; set; }
-    /// <summary>
-    /// Date in yyyy-mm-dd format, seems to be today's date
-    /// </summary>
-    public string sDate { get; set; }
-}
+﻿namespace Ocdi.Alphaess.Models;
 
 /// <summary>
 /// Each period in an array covers 5 minutes, with 288 elements in the array
@@ -65,5 +40,5 @@ public class StatisticsByDay
     public float[] DispatchSwitch { get; set; } = Array.Empty<float>();
     public object? DispatchSwitchArr { get; set; }
 
-    
+
 }

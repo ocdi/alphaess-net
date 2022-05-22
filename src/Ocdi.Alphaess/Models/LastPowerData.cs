@@ -1,12 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Ocdi.Alphaess;
-
-public class LastPowerRequest
-{
-    public string sys_sn { get; set; }
-    public bool noLoading { get; set; }
-}
+namespace Ocdi.Alphaess.Models;
 
 
 public class LastPowerData

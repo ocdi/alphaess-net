@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using Ocdi.Alphaess.Models;
+using System.Net.Http.Json;
 
 namespace Ocdi.Alphaess;
 
@@ -70,16 +71,33 @@ public class AlphaESSClient
         return false;
     }
 
-    public async Task<ApiResult<SystemData[]>?> SystemListAsync() => await _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist");
-    public async Task<ApiResult<StatisticsByDay>?> GetStatisticsByDay(string serialNumber, DateOnly requestedDay)
+    protected async Task<T> Api<T>(Func<Task<T>> func)
+    {
+        if (!ValidateTokenExpiry()) await Authenticate();
+        return await func();
+    }
+
+    public Task<ApiResult<SystemData[]>?> SystemListAsync() => Api(() => _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist"));
+
+    public Task<ApiResult<StatisticsByDay>?> GetStatisticsByDay(string serialNumber, DateOnly requestedDay) => Api(async () =>
     {
         var result = await _client.PostAsJsonAsync("/api/Power/SticsByDay", new StatisticsByDayRequest { sn = serialNumber, sDate = DateTime.Today.ToString(DateFormat), userId = serialNumber, szDay = requestedDay.ToString(DateFormat) });
-        var res = await result.Content.ReadAsStringAsync();
         return await result.Content.ReadFromJsonAsync<ApiResult<StatisticsByDay>>();
-    }
-    public async Task<ApiResult<LastPowerData>?> GetLastPowerDataBySN(string serialNumber)
+    });
+
+    public Task<ApiResult<LastPowerData>?> GetLastPowerDataBySN(string serialNumber) => Api(async () =>
     {
         var result = await _client.PostAsJsonAsync("/api/ESS/GetLastPowerDataBySN", new LastPowerRequest { sys_sn = serialNumber, noLoading = true });
         return await result.Content.ReadFromJsonAsync<ApiResult<LastPowerData>>();
-    }
+    });
+
+    public Task<ApiResult<CustomSetting>?> GetCustomUseESSSetting() => Api(() => _client.GetFromJsonAsync<ApiResult<CustomSetting>>("/api/Account/GetCustomUseESSSetting"));
+
+    public Task<CustomSetting> UpdateCustomUseESSSetting(CustomSetting currentSetting) => Api(async () =>
+    {
+        var result = await _client.PostAsJsonAsync("/api/Account/CustomUseESSSetting", currentSetting);
+        var updateResult = await result.Content.ReadFromJsonAsync<ApiResult<object?>>();
+        return (await GetCustomUseESSSetting())?.Data ?? throw new InvalidOperationException("GetCustomUseESSSetting can't return null");
+
+    });
 }
