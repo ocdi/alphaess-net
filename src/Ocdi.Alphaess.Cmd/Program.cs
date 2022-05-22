@@ -28,5 +28,24 @@ if (client.AuthenticationData?.AccessToken != null)
 
 
 var systems = await client.SystemListAsync();
-
+if (systems?.Data == null)
+{
+    Console.WriteLine("System list failed");
+    return;
+}
 Console.WriteLine(JsonSerializer.Serialize(systems));
+
+while (true)
+{
+
+    foreach (var sys in systems.Data)
+    {
+        var lpd = await client.GetLastPowerDataBySN(sys.SystemSerialNumber);
+        if (lpd?.Data is { } d)
+        {
+            Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"BAT",8} {"Load",8}");
+            Console.WriteLine($"{sys.SystemSerialNumber,-20} {d.soc,4:0.0} {d.pmeter_dc,8:0.00} {d.pbat,8:0.00} {d.pmeter_dc + d.pbat,8:0.0} {(d.pbat < 0 ? "Charing" : "Discharging")}");
+        }
+    }
+    await Task.Delay(TimeSpan.FromSeconds(10));
+}

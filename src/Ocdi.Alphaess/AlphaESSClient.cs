@@ -43,11 +43,12 @@ public class AlphaESSClient
 
     private void SetAuthentication(AccessData? data)
     {
+        AuthenticationData = data;
         if (data != null)
             _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", data.AccessToken);
     }
 
-    public DateTime ParseTokenCreateTime(string tokenCreateTime)
+    public static DateTime ParseTokenCreateTime(string tokenCreateTime)
     {
         if (tokenCreateTime.Contains('M')) // AM or PM
             return DateTime.ParseExact(tokenCreateTime, "MM/dd/yyyy hh:mm:ss tt", null);
@@ -69,5 +70,10 @@ public class AlphaESSClient
 
     public async Task<ApiResult<SystemData[]>?> SystemListAsync() => await _client.GetFromJsonAsync<ApiResult<SystemData[]>>("/api/Account/GetCustomMenuESSlist");
 
-
+    public async Task<ApiResult<LastPowerData>?> GetLastPowerDataBySN(string serialNumber)
+    {
+        var result = await _client.PostAsJsonAsync("/api/ESS/GetLastPowerDataBySN", new LastPowerRequest {  sys_sn = serialNumber, noLoading = true });
+        var res = await result.Content.ReadAsStringAsync();
+        return await result.Content.ReadFromJsonAsync<ApiResult<LastPowerData>>();
+    }
 }
