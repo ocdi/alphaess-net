@@ -36,7 +36,7 @@ var today = DateOnly.FromDateTime(Now());
 var peakStart = today.ToDateTime(new TimeOnly(15, 0), DateTimeKind.Local);
 
 
-var chargeRatePer5 = 4.2;
+var chargeRatePer5 = 4.0;
 var targetPercent = 100;
 
 var systems = await client.SystemListAsync();
@@ -89,7 +89,7 @@ while (true)
         var lpd = await client.GetLastPowerDataBySN(sys.SystemSerialNumber);
         if (lpd?.Data is { } d)
         {
-            var timeReqToCharge = TimeSpan.FromMinutes((targetPercent - d.StateOfCharge) * chargeRatePer5 / 5);
+            var timeReqToCharge = TimeSpan.FromMinutes(1 + ((targetPercent - d.StateOfCharge) / chargeRatePer5 * 5));
 
             /* we have limited control over charging - if the duration is < 1hr, we turn off charging
              * if the time is > 1hr, we set the start time to be peak start - # of hours
@@ -111,16 +111,16 @@ while (true)
                 {
                     currentSetting.grid_charge = 1;
                     currentSetting.time_chaf1a = startTime;
+                    currentSetting.time_chae1a = peakStart.ToString("HH:mm");
                     currentSetting = await client.UpdateCustomUseESSSetting(currentSetting);
                 }
             }
 
-            Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"AC",8} {"BAT",8} {"Load",8} {"State",13} {"TTC",8}");
-            Console.WriteLine($"{sys.SystemSerialNumber,-20} {d} {timeReqToCharge,8}");
-            Console.WriteLine($"charge start in {timeToPeak - timeReqToCharge}");
+            Console.WriteLine($"{"Serial",-20} {"SOC",4} {"PV",8} {"AC",8} {"BAT",8} {"Load",8} {"State",13} {"TTC",8} {"CST",8}");
+            Console.WriteLine($"{sys.SystemSerialNumber,-20} {d} {timeReqToCharge,8:hh\\:mm} {timeToPeak - timeReqToCharge,8:hh\\:mm}");
         }
     }
-    await Task.Delay(TimeSpan.FromSeconds(10));
+    await Task.Delay(TimeSpan.FromSeconds(30));
 }
 
 

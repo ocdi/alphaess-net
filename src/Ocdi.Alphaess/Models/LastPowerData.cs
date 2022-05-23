@@ -34,7 +34,7 @@ public class LastPowerData
     public string CreateTime { get; set; }
 
     public float Load => PowerMeterDC + PowerBattery + PowerMeterAC;
-    public string Description => PowerBattery < 0 ? "Charing" : "Discharging";
+    public string Description => PowerBattery < 0 ? "Charging" : "Discharging";
 
     public override string ToString() => $"{StateOfCharge,4:0.0} {PowerMeterDC,8:0.00} {PowerMeterAC,8:0.0} {PowerBattery,8:0.00} {Load,8:0.0} {Description,13}";
 }
